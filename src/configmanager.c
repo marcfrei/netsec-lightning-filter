@@ -15,7 +15,9 @@
 #include "lib/log/log.h"
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
+#include "arp.h"
 
+static const uint8_t zero_ethernet[6] = { 0 };
 
 /*
  * Synchronization and Atomic Operations:
@@ -39,6 +41,20 @@ lf_configmanager_apply_config(struct lf_configmanager *cm,
 {
 	int res = 0;
 	struct lf_config *old_config;
+
+	if (memcmp(new_config->inbound_next_hop.ether, zero_ethernet,
+				sizeof new_config->inbound_next_hop.ether) == 0) {
+		// do ARP request
+		LF_CONFIGMANAGER_LOG(DEBUG, "ARP request for inbound\n");
+		//test_arping("infra2", new_config->inbound_next_hop.ip);
+		//test_arping("two", new_config->inbound_next_hop.ip);
+		test_arping("three", "10.248.2.2");
+	}
+
+	if (memcmp(new_config->outbound_next_hop.ether, zero_ethernet,
+				sizeof new_config->outbound_next_hop.ether) == 0) {
+		// do ARP request
+	}
 
 	rte_spinlock_lock(&cm->manager_lock);
 	LF_CONFIGMANAGER_LOG(NOTICE, "Set config...\n");
