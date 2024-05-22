@@ -2,7 +2,7 @@
 
 function lf_up() {
 	sudo $lf_exec -l 0-3 \
-    -a 0000:20:00.0 \
+    -a $lf_allowed_devices \
     --log-level lf:debug \
     -- \
     -p 0x1 \
@@ -27,10 +27,11 @@ fi
 
 # get arguments
 lf_exec=$1
-lf_config=$2
-lf_log=$3
-lf_mirror_ip=$4
-lf_outbound_ip=$5
+lf_allowed_devices=$2
+lf_config=$3
+lf_log=$4
+lf_mirror_ip=$5
+lf_outbound_ip=$6
 
 lf_temp_config="lf_temp_config.json"
 
