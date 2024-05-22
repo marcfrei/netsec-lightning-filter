@@ -144,6 +144,67 @@ set_pkt_action(struct rte_mbuf *pkt, enum lf_pkt_action pkt_action)
 	}
 }
 
+static inline unsigned int
+lf_get_arp_hdr(const struct rte_mbuf *m, unsigned int offset,
+		struct rte_arp_hdr **arp_hdr_ptr)
+{
+	if (unlikely(sizeof(struct rte_arp_hdr) > m->data_len - offset)) {
+		LF_WORKER_LOG_DP(NOTICE, "ARP header exceeds first buffer segment.\n");
+		return 0;
+	}
+
+	*arp_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_arp_hdr *, offset);
+
+	offset += sizeof(struct rte_arp_hdr);
+
+	return offset;
+}
+
+static void
+log_arp_packet(struct rte_mbuf *pkt, bool from_mirror_logging_flag)
+{
+	struct rte_ether_hdr *ether_hdr;
+	struct rte_arp_hdr *arp_hdr;
+	unsigned int offset;
+
+	offset = lf_get_eth_hdr(pkt, 0, &ether_hdr);
+	if (offset == 0) {
+		return;
+	}
+
+	if (ether_hdr->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) {
+		return;
+	}
+
+	offset = lf_get_arp_hdr(pkt, offset, &arp_hdr);
+	if (offset == 0) {
+		return;
+	}
+
+	if (from_mirror_logging_flag) {
+		LF_WORKER_LOG_DP(DEBUG,
+				"ARP PACKET received from mirror \nSRC: " RTE_ETHER_ADDR_PRT_FMT
+				"\nSRC: " PRIIP "\nDST: " RTE_ETHER_ADDR_PRT_FMT "\nDST: " PRIIP
+				"\n",
+				RTE_ETHER_ADDR_BYTES(&arp_hdr->arp_data.arp_sha),
+				PRIIP_VAL((arp_hdr->arp_data.arp_sip)),
+				RTE_ETHER_ADDR_BYTES(&arp_hdr->arp_data.arp_tha),
+				PRIIP_VAL((arp_hdr->arp_data.arp_tip)));
+	} else {
+		LF_WORKER_LOG_DP(DEBUG,
+				"ARP PACKET sent to mirror \nSRC: " RTE_ETHER_ADDR_PRT_FMT
+				"\nSRC: " PRIIP "\nDST: " RTE_ETHER_ADDR_PRT_FMT "\nDST: " PRIIP
+				"\n",
+				RTE_ETHER_ADDR_BYTES(&arp_hdr->arp_data.arp_sha),
+				PRIIP_VAL((arp_hdr->arp_data.arp_sip)),
+				RTE_ETHER_ADDR_BYTES(&arp_hdr->arp_data.arp_tha),
+				PRIIP_VAL((arp_hdr->arp_data.arp_tip)));
+	}
+	uint8_t *buf = (uint8_t *)&(arp_hdr->arp_data);
+	LF_WORKER_LOG_DP(DEBUG, "%x %x %x %x %x %x", buf[0], buf[1], buf[2], buf[3],
+			buf[4], buf[5]);
+}
+
 /**
  * Filters a list of packets, forwarding local network control plane packets to
  * the port's mirror and adding non-control plane packets to the filtered
@@ -206,6 +267,7 @@ mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
 		if (forward_to_mirror) {
 			mirrored_pkts[nb_mirrored_pkts] = m;
 			nb_mirrored_pkts++;
+			log_arp_packet(m, false);
 		} else {
 			filtered_pkts[nb_filtered_pkts] = m;
 			nb_filtered_pkts++;
@@ -256,6 +318,9 @@ lf_worker_rx(struct lf_worker_context *worker,
 			LF_WORKER_LOG_DP(DEBUG,
 					"%u packets received from mirror (port %u)\n", nb_rx,
 					rx_port_id);
+			for (int i = 0; i < nb_rx; i++) {
+				log_arp_packet(rx_mirror_pkts[i], true);
+			}
 		}
 		nb_fwd = rte_eth_tx_burst(rx_port_id,
 				worker->tx_queue_id_by_port[rx_port_id], rx_mirror_pkts, nb_rx);
