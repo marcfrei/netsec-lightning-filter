@@ -18,7 +18,7 @@
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
 
-static const uint8_t zero_ethernet[6] = { 0 };
+// static const uint8_t zero_ethernet[6] = { 0 };
 
 /*
  * Synchronization and Atomic Operations:
@@ -128,9 +128,9 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 }
 
 int
-lf_configmanager_arp_request(struct lf_configmanager *cm, uint32_t dst_ip,
-		uint8_t *dst_ether)
+lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 {
+	(void) dst_ether;
 	LF_CONFIGMANAGER_LOG(INFO, "Arp request for ", PRIIP, "\n",
 			PRIIP_VAL(dst_ip));
 
@@ -145,12 +145,12 @@ lf_configmanager_arp_requests(struct lf_configmanager *cm)
 	int res = 0;
 
 	uint32_t inbound_dst_ip = cm->config->inbound_next_hop.ip;
-	res += lf_configmanager_arp_request(cm, inbound_dst_ip,
-			&cm->config->inbound_next_hop.ether);
+	res += lf_configmanager_arp_request(inbound_dst_ip,
+			cm->config->inbound_next_hop.ether);
 
 	uint32_t outbound_dst_ip = cm->config->outbound_next_hop.ip;
-	res += lf_configmanager_arp_request(cm, outbound_dst_ip,
-			&cm->config->outbound_next_hop.ether);
+	res += lf_configmanager_arp_request(outbound_dst_ip,
+			cm->config->outbound_next_hop.ether);
 
 	return res;
 }
@@ -179,6 +179,7 @@ ipc_arp_requests(const char *cmd __rte_unused, const char *p, char *out_buf,
 		size_t buf_len)
 {
 	int res = 0;
+	(void) p;
 	res = lf_configmanager_arp_requests(cm_ctx);
 	if (res != 0) {
 		return snprintf(out_buf, buf_len, "An error ocurred");
