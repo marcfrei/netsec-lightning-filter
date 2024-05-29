@@ -1191,6 +1191,12 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 */
 	if (dst_ia == local_isd_as) {
 		LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
+		LF_WORKER_LOG_DP(DEBUG,
+				"SRC ETHER: " RTE_ETHER_ADDR_PRT_FMT ", SRC IP: " PRIIP
+				", DST IP: " PRIIP "\n",
+				RTE_ETHER_ADDR_BYTES(&(parsed_pkt->ether_hdr->src_addr)),
+				PRIIP_VAL((parsed_pkt->ipv4_hdr->src_addr)),
+				PRIIP_VAL((parsed_pkt->ipv4_hdr->dst_addr)));
 		return PKT_INBOUND;
 	}
 	if (src_ia == local_isd_as) {
