@@ -172,7 +172,6 @@ out:
 int
 get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
 {
-	LF_ARP_LOG(DEBUG, "get_if_info for %s \n", ifname);
 	int err = -1;
 	struct ifreq ifr;
 	int sd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
@@ -314,17 +313,18 @@ arp_request(const char *ifname, uint32_t ip, uint8_t *ether)
 		goto out;
 	}
 
-	// TODO: Add timer to stop after a few seconds.
-	while (1) {
-		// TODO: Make sure to wait for correct packet.
+	int msec = 0, trigger = 3000; /* 3s */
+	clock_t before = clock();
+	while (msec < trigger) {
 		int r = read_arp(arp_fd, ip, ether);
 		if (r == 0) {
-			LF_ARP_LOG(INFO, "Got reply, break out \n");
+			ret = 0;
 			break;
 		}
+		clock_t difference = clock() - before;
+		msec = difference * 1000 / CLOCKS_PER_SEC;
 	}
 
-	ret = 0;
 out:
 	if (arp_fd) {
 		close(arp_fd);
