@@ -8,14 +8,15 @@
 #include <rte_rcu_qsbr.h>
 #include <rte_spinlock.h>
 
+#include "arp.h"
 #include "config.h"
 #include "configmanager.h"
 #include "keymanager.h"
 #include "lib/ipc/ipc.h"
 #include "lib/log/log.h"
+#include "lib/utils/packet.h"
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
-#include "arp.h"
 
 static const uint8_t zero_ethernet[6] = { 0 };
 
@@ -41,20 +42,6 @@ lf_configmanager_apply_config(struct lf_configmanager *cm,
 {
 	int res = 0;
 	struct lf_config *old_config;
-
-	if (memcmp(new_config->inbound_next_hop.ether, zero_ethernet,
-				sizeof new_config->inbound_next_hop.ether) == 0) {
-		// do ARP request
-		LF_CONFIGMANAGER_LOG(DEBUG, "ARP request for inbound\n");
-		//test_arping("infra2", new_config->inbound_next_hop.ip);
-		//test_arping("two", new_config->inbound_next_hop.ip);
-		test_arping("three", "10.248.2.2");
-	}
-
-	if (memcmp(new_config->outbound_next_hop.ether, zero_ethernet,
-				sizeof new_config->outbound_next_hop.ether) == 0) {
-		// do ARP request
-	}
 
 	rte_spinlock_lock(&cm->manager_lock);
 	LF_CONFIGMANAGER_LOG(NOTICE, "Set config...\n");
@@ -140,6 +127,34 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 	return 0;
 }
 
+int
+lf_configmanager_arp_request(struct lf_configmanager *cm, uint32_t dst_ip,
+		uint8_t *dst_ether)
+{
+	LF_CONFIGMANAGER_LOG(INFO, "Arp request for ", PRIIP, "\n",
+			PRIIP_VAL(dst_ip));
+
+	test_arping("virtio_user0", dst_ip);
+
+	return 0;
+}
+
+int
+lf_configmanager_arp_requests(struct lf_configmanager *cm)
+{
+	int res = 0;
+
+	uint32_t inbound_dst_ip = cm->config->inbound_next_hop.ip;
+	res += lf_configmanager_arp_request(cm, inbound_dst_ip,
+			&cm->config->inbound_next_hop.ether);
+
+	uint32_t outbound_dst_ip = cm->config->outbound_next_hop.ip;
+	res += lf_configmanager_arp_request(cm, outbound_dst_ip,
+			&cm->config->outbound_next_hop.ether);
+
+	return res;
+}
+
 /*
  * Configmanager IPC Functionalities
  */
@@ -160,12 +175,26 @@ ipc_global_config(const char *cmd __rte_unused, const char *p, char *out_buf,
 }
 
 int
+ipc_arp_requests(const char *cmd __rte_unused, const char *p, char *out_buf,
+		size_t buf_len)
+{
+	int res = 0;
+	res = lf_configmanager_arp_requests(cm_ctx);
+	if (res != 0) {
+		return snprintf(out_buf, buf_len, "An error ocurred");
+	}
+	return snprintf(out_buf, buf_len, "successfully applied config");
+}
+
+int
 lf_configmanager_register_ipc(struct lf_configmanager *cm)
 {
 	int res = 0;
 
 	res |= lf_ipc_register_cmd("/config", ipc_global_config,
 			"Load global config, i.e., config for all modules, from file");
+	res |= lf_ipc_register_cmd("/arp", ipc_arp_requests,
+			"Perform arp request, write result to config.");
 	if (res != 0) {
 		LF_CONFIGMANAGER_LOG(ERR, "Failed to register IPC command\n");
 		return -1;
