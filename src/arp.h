@@ -1,5 +1,5 @@
 #include "lib/log/log.h"
-#include <arpa/inet.h> //htons etc
+#include <arpa/inet.h>
 #include <asm/types.h>
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
@@ -22,11 +22,6 @@
 #define BUF_SIZE        60
 
 #define LF_ARP_LOG(level, ...) LF_LOG(level, "ARP: " __VA_ARGS__)
-
-#define debug(x...) LF_ARP_LOG(DEBUG, x);
-#define info(x...)  LF_ARP_LOG(INFO, x);
-#define warn(x...)  LF_ARP_LOG(WARNING, x);
-#define err(x...)   LF_ARP_LOG(ERR, x);
 
 struct arp_header {
 	unsigned short hardware_type;
@@ -52,7 +47,7 @@ int_ip4(struct sockaddr *addr, uint32_t *ip)
 		*ip = i->sin_addr.s_addr;
 		return 0;
 	} else {
-		err("Not AF_INET\n");
+		LF_ARP_LOG(ERR, "Not AF_INET\n");
 		return 1;
 	}
 }
@@ -89,7 +84,7 @@ get_if_ip4(int fd, const char *ifname, uint32_t *ip)
 	struct ifreq ifr;
 	memset(&ifr, 0, sizeof(struct ifreq));
 	if (strlen(ifname) > (IFNAMSIZ - 1)) {
-		err("Too long interface name \n");
+		LF_ARP_LOG(ERR, "Too long interface name \n");
 		goto out;
 	}
 
@@ -154,7 +149,7 @@ send_arp(int fd, int ifindex, char *src_mac, uint32_t src_ip, uint32_t dst_ip)
 	arp_req->protocol_len = IPV4_LENGTH;
 	arp_req->opcode = htons(ARP_REQUEST);
 
-	debug("Copy IP address to arp_req\n");
+	LF_ARP_LOG(DEBUG, "Copy IP address to arp_req\n");
 	memcpy(arp_req->sender_ip, &src_ip, sizeof(uint32_t));
 	memcpy(arp_req->target_ip, &dst_ip, sizeof(uint32_t));
 
@@ -178,7 +173,7 @@ out:
 int
 get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
 {
-	debug("get_if_info for %s \n", ifname);
+	LF_ARP_LOG(DEBUG, "get_if_info for %s \n", ifname);
 	int err = -1;
 	struct ifreq ifr;
 	int sd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
@@ -213,12 +208,12 @@ get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
 	if (get_if_ip4(sd, ifname, ip)) {
 		goto out;
 	}
-	debug("get_if_info OK \n");
+	LF_ARP_LOG(DEBUG, "get_if_info OK \n");
 
 	err = 0;
 out:
 	if (sd > 0) {
-		debug("Clean up temporary socket \n");
+		LF_ARP_LOG(DEBUG, "Clean up temporary socket \n");
 		close(sd);
 	}
 	return err;
@@ -232,7 +227,7 @@ out:
 int
 bind_arp(int ifindex, int *fd)
 {
-	debug("bind_arp: ifindex=%i \n", ifindex);
+	LF_ARP_LOG(DEBUG, "bind_arp: ifindex=%i \n", ifindex);
 	int ret = -1;
 
 	// Submit request for a raw socket descriptor.
@@ -242,7 +237,7 @@ bind_arp(int ifindex, int *fd)
 		goto out;
 	}
 
-	debug("Binding to ifindex %i \n", ifindex);
+	LF_ARP_LOG(DEBUG, "Binding to ifindex %i \n", ifindex);
 	struct sockaddr_ll sll;
 	memset(&sll, 0, sizeof(struct sockaddr_ll));
 	sll.sll_family = AF_PACKET;
@@ -255,7 +250,7 @@ bind_arp(int ifindex, int *fd)
 	ret = 0;
 out:
 	if (ret && *fd > 0) {
-		debug("Cleanup socket \n");
+		LF_ARP_LOG(DEBUG, "Cleanup socket \n");
 		close(*fd);
 	}
 	return ret;
@@ -268,7 +263,7 @@ out:
 int
 read_arp(int fd)
 {
-	debug("read_arp \n");
+	LF_ARP_LOG(DEBUG, "read_arp \n");
 	int ret = -1;
 	unsigned char buffer[BUF_SIZE];
 	struct ethhdr *rcv_resp = (struct ethhdr *)buffer;
@@ -281,20 +276,20 @@ read_arp(int fd)
 		goto out;
 	}
 	if (ntohs(rcv_resp->h_proto) != PROTO_ARP) {
-		debug("Not an ARP packet \n");
+		LF_ARP_LOG(DEBUG, "Not an ARP packet \n");
 		goto out;
 	}
 	if (ntohs(arp_resp->opcode) != ARP_REPLY) {
-		debug("Not an ARP reply");
+		LF_ARP_LOG(DEBUG, "Not an ARP reply \n");
 		goto out;
 	}
-	debug("received ARP len=%ld", length);
+	LF_ARP_LOG(DEBUG, "received ARP len=%ld", length);
 	struct in_addr sender_a;
 	memset(&sender_a, 0, sizeof(struct in_addr));
 	memcpy(&sender_a.s_addr, arp_resp->sender_ip, sizeof(uint32_t));
-	debug("Sender IP: %s", inet_ntoa(sender_a));
+	LF_ARP_LOG(DEBUG, "Sender IP: %s\n", inet_ntoa(sender_a));
 
-	debug("Sender MAC: %02X:%02X:%02X:%02X:%02X:%02X", arp_resp->sender_mac[0],
+	LF_ARP_LOG(DEBUG, "Sender MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", arp_resp->sender_mac[0],
 			arp_resp->sender_mac[1], arp_resp->sender_mac[2],
 			arp_resp->sender_mac[3], arp_resp->sender_mac[4],
 			arp_resp->sender_mac[5]);
@@ -308,7 +303,7 @@ out:
 /*
  *
  * Sample code that sends an ARP who-has request on
- * interface <ifname> to IPv4 address <ip>.
+ * interface <ifname> to IPv4 address <dst>.
  * Returns 0 on success.
  */
 int
@@ -321,24 +316,24 @@ test_arping(const char *ifname, uint32_t dst)
 	int ifindex;
 	char mac[MAC_LENGTH];
 	if (get_if_info(ifname, &src, mac, &ifindex)) {
-		err("get_if_info failed, interface %s not found or no IP set? \n",
+		LF_ARP_LOG(ERR, "get_if_info failed, interface %s not found or no IP set? \n",
 				ifname);
 		goto out;
 	}
 	if (bind_arp(ifindex, &arp_fd)) {
-		err("Failed to bind_arp() \n");
+		LF_ARP_LOG(ERR, "Failed to bind_arp() \n");
 		goto out;
 	}
 
 	if (send_arp(arp_fd, ifindex, mac, src, dst)) {
-		err("Failed to send_arp \n");
+		LF_ARP_LOG(ERR, "Failed to send_arp \n");
 		goto out;
 	}
 
 	while (1) {
 		int r = read_arp(arp_fd);
 		if (r == 0) {
-			info("Got reply, break out \n");
+			LF_ARP_LOG(INFO, "Got reply, break out \n");
 			break;
 		}
 	}
