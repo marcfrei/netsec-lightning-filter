@@ -283,7 +283,7 @@ read_arp(int fd)
 		LF_ARP_LOG(DEBUG, "Not an ARP reply \n");
 		goto out;
 	}
-	LF_ARP_LOG(DEBUG, "received ARP len=%ld", length);
+	LF_ARP_LOG(DEBUG, "received ARP len=%ld \n", length);
 	struct in_addr sender_a;
 	memset(&sender_a, 0, sizeof(struct in_addr));
 	memcpy(&sender_a.s_addr, arp_resp->sender_ip, sizeof(uint32_t));

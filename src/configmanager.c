@@ -131,7 +131,7 @@ int
 lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 {
 	(void) dst_ether;
-	LF_CONFIGMANAGER_LOG(INFO, "Arp request for ", PRIIP, "\n",
+	LF_CONFIGMANAGER_LOG(INFO, "Arp request for " PRIIP "\n",
 			PRIIP_VAL(dst_ip));
 
 	test_arping("virtio_user0", dst_ip);
