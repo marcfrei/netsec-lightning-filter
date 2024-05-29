@@ -1,3 +1,4 @@
+#include "lib/log/log.h"
 #include <arpa/inet.h> //htons etc
 #include <asm/types.h>
 #include <linux/if_arp.h>
@@ -9,7 +10,6 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include "lib/log/log.h"
 
 
 #define PROTO_ARP       0x0806
