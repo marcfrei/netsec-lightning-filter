@@ -149,14 +149,13 @@ send_arp(int fd, int ifindex, char *src_mac, uint32_t src_ip, uint32_t dst_ip)
 	arp_req->protocol_len = IPV4_LENGTH;
 	arp_req->opcode = htons(ARP_REQUEST);
 
-	LF_ARP_LOG(DEBUG, "Copy IP address to arp_req\n");
 	memcpy(arp_req->sender_ip, &src_ip, sizeof(uint32_t));
 	memcpy(arp_req->target_ip, &dst_ip, sizeof(uint32_t));
 
 	ret = sendto(fd, buffer, 42, 0, (struct sockaddr *)&socket_address,
 			sizeof(socket_address));
 	if (ret == -1) {
-		LF_ARP_LOG(ERR, "sendto():");
+		LF_ARP_LOG(ERR, "sendto");
 		goto out;
 	}
 	err = 0;
@@ -178,7 +177,7 @@ get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
 	struct ifreq ifr;
 	int sd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
 	if (sd <= 0) {
-		LF_ARP_LOG(ERR, "socket()");
+		LF_ARP_LOG(ERR, "socket");
 		goto out;
 	}
 	if (strlen(ifname) > (IFNAMSIZ - 1)) {
@@ -207,12 +206,10 @@ get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
 	if (get_if_ip4(sd, ifname, ip)) {
 		goto out;
 	}
-	LF_ARP_LOG(DEBUG, "get_if_info OK \n");
 
 	err = 0;
 out:
 	if (sd > 0) {
-		LF_ARP_LOG(DEBUG, "Clean up temporary socket \n");
 		close(sd);
 	}
 	return err;
@@ -226,17 +223,15 @@ out:
 int
 bind_arp(int ifindex, int *fd)
 {
-	LF_ARP_LOG(DEBUG, "bind_arp: ifindex=%i \n", ifindex);
 	int ret = -1;
 
 	// Submit request for a raw socket descriptor.
 	*fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
 	if (*fd < 1) {
-		LF_ARP_LOG(ERR, "socket()");
+		LF_ARP_LOG(ERR, "socket");
 		goto out;
 	}
 
-	LF_ARP_LOG(DEBUG, "Binding to ifindex %i \n", ifindex);
 	struct sockaddr_ll sll;
 	memset(&sll, 0, sizeof(struct sockaddr_ll));
 	sll.sll_family = AF_PACKET;
@@ -249,7 +244,6 @@ bind_arp(int ifindex, int *fd)
 	ret = 0;
 out:
 	if (ret && *fd > 0) {
-		LF_ARP_LOG(DEBUG, "Cleanup socket \n");
 		close(*fd);
 	}
 	return ret;
@@ -260,10 +254,8 @@ out:
  * Return 0 on success.
  */
 int
-read_arp(int fd, uint8_t *ether)
+read_arp(int fd, uint32_t ip, uint8_t *ether)
 {
-	LF_ARP_LOG(DEBUG, "read_arp \n");
-	int ret = -1;
 	unsigned char buffer[BUF_SIZE];
 	struct ethhdr *rcv_resp = (struct ethhdr *)buffer;
 	struct arp_header *arp_resp =
@@ -271,22 +263,17 @@ read_arp(int fd, uint8_t *ether)
 
 	ssize_t length = recvfrom(fd, buffer, BUF_SIZE, 0, NULL, NULL);
 	if (length == -1) {
-		LF_ARP_LOG(ERR, "recvfrom()");
-		goto out;
+		return -1;
 	}
 	if (ntohs(rcv_resp->h_proto) != PROTO_ARP) {
-		LF_ARP_LOG(DEBUG, "Not an ARP packet \n");
-		goto out;
+		return -1;
 	}
 	if (ntohs(arp_resp->opcode) != ARP_REPLY) {
-		LF_ARP_LOG(DEBUG, "Not an ARP reply \n");
-		goto out;
+		return -1;
 	}
-	LF_ARP_LOG(DEBUG, "received ARP len=%ld \n", length);
-	struct in_addr sender_a;
-	memset(&sender_a, 0, sizeof(struct in_addr));
-	memcpy(&sender_a.s_addr, arp_resp->sender_ip, sizeof(uint32_t));
-	LF_ARP_LOG(DEBUG, "Sender IP: %s\n", inet_ntoa(sender_a));
+	if (*(uint32_t *)arp_resp->sender_ip != ip) {
+		return -1;
+	}
 
 	LF_ARP_LOG(DEBUG, "Sender MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
 			arp_resp->sender_mac[0], arp_resp->sender_mac[1],
@@ -294,11 +281,7 @@ read_arp(int fd, uint8_t *ether)
 			arp_resp->sender_mac[4], arp_resp->sender_mac[5]);
 
 	memcpy(ether, arp_resp->sender_mac, 6);
-
-	ret = 0;
-
-out:
-	return ret;
+	return 0;
 }
 
 /*
@@ -307,7 +290,7 @@ out:
  * Returns 0 on success.
  */
 int
-arp_request(const char *ifname, uint32_t dst, uint8_t *ether)
+arp_request(const char *ifname, uint32_t ip, uint8_t *ether)
 {
 	int ret = -1;
 	int arp_fd = 0;
@@ -326,13 +309,15 @@ arp_request(const char *ifname, uint32_t dst, uint8_t *ether)
 		goto out;
 	}
 
-	if (send_arp(arp_fd, ifindex, mac, src, dst)) {
+	if (send_arp(arp_fd, ifindex, mac, src, ip)) {
 		LF_ARP_LOG(ERR, "Failed to send_arp \n");
 		goto out;
 	}
 
+	// TODO: Add timer to stop after a few seconds.
 	while (1) {
-		int r = read_arp(arp_fd, ether);
+		// TODO: Make sure to wait for correct packet.
+		int r = read_arp(arp_fd, ip, ether);
 		if (r == 0) {
 			LF_ARP_LOG(INFO, "Got reply, break out \n");
 			break;

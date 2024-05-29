@@ -230,9 +230,6 @@ log_arp_packet(struct rte_mbuf *pkt, bool from_mirror_logging_flag)
 				RTE_ETHER_ADDR_BYTES(&arp_hdr->arp_data.arp_tha),
 				PRIIP_VAL((arp_hdr->arp_data.arp_tip)));
 	}
-	uint8_t *buf = (uint8_t *)&(arp_hdr->arp_data);
-	LF_WORKER_LOG_DP(DEBUG, "%x %x %x %x %x %x\n", buf[0], buf[1], buf[2],
-			buf[3], buf[4], buf[5]);
 }
 
 /**
