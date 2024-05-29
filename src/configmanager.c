@@ -130,11 +130,10 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 int
 lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 {
-	(void) dst_ether;
 	LF_CONFIGMANAGER_LOG(INFO, "Arp request for " PRIIP "\n",
 			PRIIP_VAL(dst_ip));
 
-	test_arping("virtio_user0", dst_ip);
+	arp_request("virtio_user0", dst_ip, dst_ether);
 
 	return 0;
 }
@@ -179,7 +178,7 @@ ipc_arp_requests(const char *cmd __rte_unused, const char *p, char *out_buf,
 		size_t buf_len)
 {
 	int res = 0;
-	(void) p;
+	(void)p;
 	res = lf_configmanager_arp_requests(cm_ctx);
 	if (res != 0) {
 		return snprintf(out_buf, buf_len, "An error ocurred");

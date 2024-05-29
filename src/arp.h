@@ -90,7 +90,7 @@ get_if_ip4(int fd, const char *ifname, uint32_t *ip)
 
 	strcpy(ifr.ifr_name, ifname);
 	if (ioctl(fd, SIOCGIFADDR, &ifr) == -1) {
-		perror("SIOCGIFADDR");
+		LF_ARP_LOG(ERR, "SIOCGIFADDR");
 		goto out;
 	}
 
@@ -156,7 +156,7 @@ send_arp(int fd, int ifindex, char *src_mac, uint32_t src_ip, uint32_t dst_ip)
 	ret = sendto(fd, buffer, 42, 0, (struct sockaddr *)&socket_address,
 			sizeof(socket_address));
 	if (ret == -1) {
-		perror("sendto():");
+		LF_ARP_LOG(ERR, "sendto():");
 		goto out;
 	}
 	err = 0;
@@ -178,11 +178,11 @@ get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
 	struct ifreq ifr;
 	int sd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
 	if (sd <= 0) {
-		perror("socket()");
+		LF_ARP_LOG(ERR, "socket()");
 		goto out;
 	}
 	if (strlen(ifname) > (IFNAMSIZ - 1)) {
-		printf("Too long interface name, MAX=%i\n", IFNAMSIZ - 1);
+		LF_ARP_LOG(ERR, "Too long interface name, MAX=%i\n", IFNAMSIZ - 1);
 		goto out;
 	}
 
@@ -190,15 +190,14 @@ get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
 
 	// Get interface index using name
 	if (ioctl(sd, SIOCGIFINDEX, &ifr) == -1) {
-		perror("SIOCGIFINDEX");
+		LF_ARP_LOG(ERR, "SIOCGIFINDEX");
 		goto out;
 	}
 	*ifindex = ifr.ifr_ifindex;
-	printf("interface index is %d\n", *ifindex);
 
 	// Get MAC address of the interface
 	if (ioctl(sd, SIOCGIFHWADDR, &ifr) == -1) {
-		perror("SIOCGIFINDEX");
+		LF_ARP_LOG(ERR, "SIOCGIFINDEX");
 		goto out;
 	}
 
@@ -233,7 +232,7 @@ bind_arp(int ifindex, int *fd)
 	// Submit request for a raw socket descriptor.
 	*fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
 	if (*fd < 1) {
-		perror("socket()");
+		LF_ARP_LOG(ERR, "socket()");
 		goto out;
 	}
 
@@ -243,7 +242,7 @@ bind_arp(int ifindex, int *fd)
 	sll.sll_family = AF_PACKET;
 	sll.sll_ifindex = ifindex;
 	if (bind(*fd, (struct sockaddr *)&sll, sizeof(struct sockaddr_ll)) < 0) {
-		perror("bind");
+		LF_ARP_LOG(ERR, "bind");
 		goto out;
 	}
 
@@ -261,7 +260,7 @@ out:
  * Return 0 on success.
  */
 int
-read_arp(int fd)
+read_arp(int fd, uint8_t *ether)
 {
 	LF_ARP_LOG(DEBUG, "read_arp \n");
 	int ret = -1;
@@ -272,7 +271,7 @@ read_arp(int fd)
 
 	ssize_t length = recvfrom(fd, buffer, BUF_SIZE, 0, NULL, NULL);
 	if (length == -1) {
-		perror("recvfrom()");
+		LF_ARP_LOG(ERR, "recvfrom()");
 		goto out;
 	}
 	if (ntohs(rcv_resp->h_proto) != PROTO_ARP) {
@@ -289,10 +288,12 @@ read_arp(int fd)
 	memcpy(&sender_a.s_addr, arp_resp->sender_ip, sizeof(uint32_t));
 	LF_ARP_LOG(DEBUG, "Sender IP: %s\n", inet_ntoa(sender_a));
 
-	LF_ARP_LOG(DEBUG, "Sender MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", arp_resp->sender_mac[0],
-			arp_resp->sender_mac[1], arp_resp->sender_mac[2],
-			arp_resp->sender_mac[3], arp_resp->sender_mac[4],
-			arp_resp->sender_mac[5]);
+	LF_ARP_LOG(DEBUG, "Sender MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+			arp_resp->sender_mac[0], arp_resp->sender_mac[1],
+			arp_resp->sender_mac[2], arp_resp->sender_mac[3],
+			arp_resp->sender_mac[4], arp_resp->sender_mac[5]);
+
+	memcpy(ether, arp_resp->sender_mac, 6);
 
 	ret = 0;
 
@@ -301,13 +302,12 @@ out:
 }
 
 /*
- *
  * Sample code that sends an ARP who-has request on
  * interface <ifname> to IPv4 address <dst>.
  * Returns 0 on success.
  */
 int
-test_arping(const char *ifname, uint32_t dst)
+arp_request(const char *ifname, uint32_t dst, uint8_t *ether)
 {
 	int ret = -1;
 	int arp_fd = 0;
@@ -316,12 +316,13 @@ test_arping(const char *ifname, uint32_t dst)
 	int ifindex;
 	char mac[MAC_LENGTH];
 	if (get_if_info(ifname, &src, mac, &ifindex)) {
-		LF_ARP_LOG(ERR, "get_if_info failed, interface %s not found or no IP set? \n",
+		LF_ARP_LOG(ERR,
+				"get_if_info failed, interface %s not found or no IP set? \n",
 				ifname);
 		goto out;
 	}
 	if (bind_arp(ifindex, &arp_fd)) {
-		LF_ARP_LOG(ERR, "Failed to bind_arp() \n");
+		LF_ARP_LOG(ERR, "Failed to bind \n");
 		goto out;
 	}
 
@@ -331,7 +332,7 @@ test_arping(const char *ifname, uint32_t dst)
 	}
 
 	while (1) {
-		int r = read_arp(arp_fd);
+		int r = read_arp(arp_fd, ether);
 		if (r == 0) {
 			LF_ARP_LOG(INFO, "Got reply, break out \n");
 			break;
