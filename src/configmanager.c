@@ -130,7 +130,7 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 int
 lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 {
-	LF_CONFIGMANAGER_LOG(INFO, "Arp request for " PRIIP "\n",
+	LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
 			PRIIP_VAL(dst_ip));
 
 	arp_request("virtio_user0", dst_ip, dst_ether);
@@ -138,10 +138,12 @@ lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 	return 0;
 }
 
-int
-lf_configmanager_arp_requests(struct lf_configmanager *cm)
+void
+lf_configmanager_service_update(struct lf_configmanager *cm)
 {
 	int res = 0;
+
+	LF_CONFIGMANAGER_LOG(DEBUG, "Updating service.\n");
 
 	uint32_t inbound_dst_ip = cm->config->inbound_next_hop.ip;
 	res += lf_configmanager_arp_request(inbound_dst_ip,
@@ -151,7 +153,41 @@ lf_configmanager_arp_requests(struct lf_configmanager *cm)
 	res += lf_configmanager_arp_request(outbound_dst_ip,
 			cm->config->outbound_next_hop.ether);
 
-	return res;
+	LF_CONFIGMANAGER_LOG(DEBUG, "Updating service. Success rate %d\n", res);
+}
+
+// Open Questions:
+// ARP is not a secure protocol. It could happen that we DOS ourselfs if an
+// adversary responds to the ARP requests.
+
+// Is it necessary to assign an lcore completely to this task? Would id be
+// useful to share service cores somehow?
+
+// How often do we do the requests?
+
+int
+lf_configmanager_service_launch(struct lf_configmanager *cm)
+{
+	uint64_t current_tsc, last_rotation_tsc, period_tsc;
+
+	/* measure time using the time stamp counter */
+	last_rotation_tsc = rte_rdtsc();
+	period_tsc = (uint64_t)((double)rte_get_timer_hz() *
+							LF_CONFIGMANAGER_ARP_INTERVAL);
+
+	while (!lf_force_quit) {
+		current_tsc = rte_rdtsc();
+		if (current_tsc - last_rotation_tsc >= period_tsc) {
+			(void)lf_configmanager_service_update(cm);
+			last_rotation_tsc = current_tsc;
+
+			/* potentially the clock speed has changed */
+			period_tsc = (uint64_t)((double)rte_get_timer_hz() *
+									LF_CONFIGMANAGER_ARP_INTERVAL);
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -174,27 +210,12 @@ ipc_global_config(const char *cmd __rte_unused, const char *p, char *out_buf,
 }
 
 int
-ipc_arp_requests(const char *cmd __rte_unused, const char *p, char *out_buf,
-		size_t buf_len)
-{
-	int res = 0;
-	(void)p;
-	res = lf_configmanager_arp_requests(cm_ctx);
-	if (res != 0) {
-		return snprintf(out_buf, buf_len, "An error ocurred");
-	}
-	return snprintf(out_buf, buf_len, "successfully applied config");
-}
-
-int
 lf_configmanager_register_ipc(struct lf_configmanager *cm)
 {
 	int res = 0;
 
 	res |= lf_ipc_register_cmd("/config", ipc_global_config,
 			"Load global config, i.e., config for all modules, from file");
-	res |= lf_ipc_register_cmd("/arp", ipc_arp_requests,
-			"Perform arp request, write result to config.");
 	if (res != 0) {
 		LF_CONFIGMANAGER_LOG(ERR, "Failed to register IPC command\n");
 		return -1;
