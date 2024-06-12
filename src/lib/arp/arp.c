@@ -1,4 +1,3 @@
-#include "lib/log/log.h"
 #include <arpa/inet.h>
 #include <asm/types.h>
 #include <linux/if_arp.h>
@@ -9,31 +8,13 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
-
-#define PROTO_ARP       0x0806
-#define ETH2_HEADER_LEN 14
-#define HW_TYPE         1
-#define MAC_LENGTH      6
-#define IPV4_LENGTH     4
-#define ARP_REQUEST     0x01
-#define ARP_REPLY       0x02
-#define BUF_SIZE        60
+#include "../log/log.h"
+#include "arp.h"
 
 #define LF_ARP_LOG(level, ...) LF_LOG(level, "ARP: " __VA_ARGS__)
-
-struct arp_header {
-	unsigned short hardware_type;
-	unsigned short protocol_type;
-	unsigned char hardware_len;
-	unsigned char protocol_len;
-	unsigned short opcode;
-	unsigned char sender_mac[MAC_LENGTH];
-	unsigned char sender_ip[IPV4_LENGTH];
-	unsigned char target_mac[MAC_LENGTH];
-	unsigned char target_ip[IPV4_LENGTH];
-};
 
 /*
  * Converts struct sockaddr with an IPv4 address to network byte order uin32_t.
@@ -110,7 +91,7 @@ int
 send_arp(int fd, int ifindex, char *src_mac, uint32_t src_ip, uint32_t dst_ip)
 {
 	int err = -1;
-	unsigned char buffer[BUF_SIZE];
+	unsigned char buffer[ARP_BUF_SIZE];
 	memset(buffer, 0, sizeof(buffer));
 
 	struct sockaddr_ll socket_address;
@@ -255,12 +236,12 @@ out:
 int
 read_arp(int fd, uint32_t ip, uint8_t *ether)
 {
-	unsigned char buffer[BUF_SIZE];
+	unsigned char buffer[ARP_BUF_SIZE];
 	struct ethhdr *rcv_resp = (struct ethhdr *)buffer;
 	struct arp_header *arp_resp =
 			(struct arp_header *)(buffer + ETH2_HEADER_LEN);
 
-	ssize_t length = recvfrom(fd, buffer, BUF_SIZE, 0, NULL, NULL);
+	ssize_t length = recvfrom(fd, buffer, ARP_BUF_SIZE, 0, NULL, NULL);
 	if (length == -1) {
 		return -1;
 	}
@@ -283,11 +264,6 @@ read_arp(int fd, uint32_t ip, uint8_t *ether)
 	return 0;
 }
 
-/*
- * Sample code that sends an ARP who-has request on
- * interface <ifname> to IPv4 address <dst>.
- * Returns 0 on success.
- */
 int
 arp_request(const char *ifname, uint32_t ip, uint8_t *ether)
 {

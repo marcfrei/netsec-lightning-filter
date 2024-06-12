@@ -8,17 +8,15 @@
 #include <rte_rcu_qsbr.h>
 #include <rte_spinlock.h>
 
-#include "arp.h"
 #include "config.h"
 #include "configmanager.h"
 #include "keymanager.h"
+#include "lib/arp/arp.h"
 #include "lib/ipc/ipc.h"
 #include "lib/log/log.h"
 #include "lib/utils/packet.h"
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
-
-// static const uint8_t zero_ethernet[6] = { 0 };
 
 /*
  * Synchronization and Atomic Operations:
@@ -133,7 +131,7 @@ lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 	LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
 			PRIIP_VAL(dst_ip));
 
-	arp_request("virtio_user0", dst_ip, dst_ether);
+	arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, dst_ip, dst_ether);
 
 	return 0;
 }
@@ -153,11 +151,14 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 	res += lf_configmanager_arp_request(outbound_dst_ip,
 			cm->config->outbound_next_hop.ether);
 
-	LF_CONFIGMANAGER_LOG(DEBUG, "Updating service. Success rate %d\n", res);
+	if (res > 0) {
+		LF_CONFIGMANAGER_LOG(DEBUG, "Updated service. Not successful: %d\n",
+				res);
+	}
 }
 
 // Open Questions:
-// ARP is not a secure protocol. It could happen that we DOS ourselfs if an
+// ARP is not a secure protocol. DOS could happen if an
 // adversary responds to the ARP requests.
 
 // Is it necessary to assign an lcore completely to this task? Would id be

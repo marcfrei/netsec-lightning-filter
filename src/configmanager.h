@@ -23,7 +23,8 @@
  * runtime.
  */
 
-#define LF_CONFIGMANAGER_ARP_INTERVAL 30 /* seconds */
+#define LF_CONFIGMANAGER_ARP_INTERVAL  30 /* seconds */
+#define LF_CONFIGMANAGER_ARP_INTERFACE "virtio_user0"
 
 /**
  * The worker's config manager struct to access the current
