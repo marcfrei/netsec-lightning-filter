@@ -18,6 +18,7 @@
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
 
+
 /*
  * Synchronization and Atomic Operations:
  * Writing and reading the workers' config pointer is always performed
@@ -125,16 +126,6 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 	return 0;
 }
 
-int
-lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
-{
-	int res;
-	LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
-			PRIIP_VAL(dst_ip));
-	res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, dst_ip, dst_ether);
-	return res;
-}
-
 void
 lf_configmanager_service_update(struct lf_configmanager *cm)
 {
@@ -143,8 +134,11 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 	uint8_t ether[6];
 
 	if (cm->config->inbound_next_hop.ether_via_arp) {
-		res = lf_configmanager_arp_request(cm->config->inbound_next_hop.ip_arp,
-				ether);
+		LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
+				PRIIP_VAL(cm->config->inbound_next_hop.ip_arp));
+
+		res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE,
+				cm->config->inbound_next_hop.ip_arp, ether);
 		if (res == 0) {
 			memcpy(cm->config->inbound_next_hop.ether, ether, 6);
 			LF_CONFIGMANAGER_LOG(DEBUG,
@@ -156,8 +150,11 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 	}
 
 	if (cm->config->outbound_next_hop.ether_via_arp) {
-		res = lf_configmanager_arp_request(cm->config->outbound_next_hop.ip_arp,
-				ether);
+		LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
+				PRIIP_VAL(cm->config->outbound_next_hop.ip_arp));
+
+		res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE,
+				cm->config->outbound_next_hop.ip_arp, ether);
 		if (res == 0) {
 			memcpy(cm->config->outbound_next_hop.ether, ether, 6);
 			LF_CONFIGMANAGER_LOG(DEBUG,

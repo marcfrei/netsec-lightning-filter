@@ -92,6 +92,7 @@ struct lf_config_pkt_mod {
 	 * ARP */
 	bool ether_via_arp;
 	uint32_t ip_arp; /* IPv4 destination address for ARP request */
+
 	/*
 	 * IP Layer Modifiers
 	 */
