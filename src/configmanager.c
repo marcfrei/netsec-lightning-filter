@@ -128,18 +128,17 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 int
 lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 {
+	int res;
 	LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
 			PRIIP_VAL(dst_ip));
-
-	arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, dst_ip, dst_ether);
-
-	return 0;
+	res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, dst_ip, dst_ether);
+	return res;
 }
 
 void
 lf_configmanager_service_update(struct lf_configmanager *cm)
 {
-	int res;
+	int res = 0;
 	int errors = 0;
 
 	if (cm->config->inbound_next_hop.ether_via_arp) {
