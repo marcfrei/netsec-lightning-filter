@@ -138,59 +138,48 @@ lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 void
 lf_configmanager_service_update(struct lf_configmanager *cm)
 {
-	int res = 0;
+	int res;
 	int errors = 0;
+	uint8_t ether[6];
 
 	if (cm->config->inbound_next_hop.ether_via_arp) {
-		uint32_t inbound_dst_ip = cm->config->inbound_next_hop.ip_arp;
-		res = lf_configmanager_arp_request(inbound_dst_ip,
-				cm->config->inbound_next_hop.ether);
+		res = lf_configmanager_arp_request(cm->config->inbound_next_hop.ip_arp,
+				ether);
 		if (res == 0) {
+			memcpy(cm->config->inbound_next_hop.ether, ether, 6);
 			LF_CONFIGMANAGER_LOG(DEBUG,
 					"Successfully set inbound ethernet address to: "
 					"%02X:%02X:%02X:%02X:%02X:%02X\n",
-					cm->config->inbound_next_hop.ether[0],
-					cm->config->inbound_next_hop.ether[1],
-					cm->config->inbound_next_hop.ether[2],
-					cm->config->inbound_next_hop.ether[3],
-					cm->config->inbound_next_hop.ether[4],
-					cm->config->inbound_next_hop.ether[5]);
+					ether[0], ether[1], ether[2], ether[3], ether[4], ether[5]);
 		}
 		errors += res;
 	}
 
 	if (cm->config->outbound_next_hop.ether_via_arp) {
-		uint32_t outbound_dst_ip = cm->config->outbound_next_hop.ip_arp;
-		res += lf_configmanager_arp_request(outbound_dst_ip,
-				cm->config->outbound_next_hop.ether);
+		res = lf_configmanager_arp_request(cm->config->outbound_next_hop.ip_arp,
+				ether);
 		if (res == 0) {
+			memcpy(cm->config->outbound_next_hop.ether, ether, 6);
 			LF_CONFIGMANAGER_LOG(DEBUG,
 					"Successfully set outbound ethernet address to: "
 					"%02X:%02X:%02X:%02X:%02X:%02X\n",
-					cm->config->outbound_next_hop.ether[0],
-					cm->config->outbound_next_hop.ether[1],
-					cm->config->outbound_next_hop.ether[2],
-					cm->config->outbound_next_hop.ether[3],
-					cm->config->outbound_next_hop.ether[4],
-					cm->config->outbound_next_hop.ether[5]);
+					ether[0], ether[1], ether[2], ether[3], ether[4], ether[5]);
 		}
 		errors += res;
 	}
 
-	if (res > 0) {
+	if (errors > 0) {
 		LF_CONFIGMANAGER_LOG(DEBUG, "Updated service. Not successful: %d\n",
 				errors);
 	}
 }
 
-// Open Questions:
+// Open discussion points:
 // ARP is not a secure protocol. DOS could happen if an
 // adversary responds to the ARP requests.
 
 // Is it necessary to assign an lcore completely to this task? Would id be
 // useful to share service cores somehow?
-
-// How often do we do the requests?
 
 int
 lf_configmanager_service_launch(struct lf_configmanager *cm)
