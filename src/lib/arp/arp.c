@@ -29,53 +29,30 @@ int_ip4(struct sockaddr *addr, uint32_t *ip)
 }
 
 /*
- * Formats sockaddr containing IPv4 address as human readable string.
- * Returns 0 on success.
- */
-int
-format_ip4(struct sockaddr *addr, char *out)
-{
-	if (addr->sa_family == AF_INET) {
-		struct sockaddr_in *i = (struct sockaddr_in *)addr;
-		const char *ip = inet_ntoa(i->sin_addr);
-		if (!ip) {
-			return -2;
-		} else {
-			strcpy(out, ip);
-			return 0;
-		}
-	} else {
-		return -1;
-	}
-}
-
-/*
  * Writes interface IPv4 address as network byte order to ip.
  * Returns 0 on success.
  */
 int
 get_if_ip4(int fd, const char *ifname, uint32_t *ip)
 {
-	int err = -1;
 	struct ifreq ifr;
 	memset(&ifr, 0, sizeof(struct ifreq));
 	if (strlen(ifname) > (IFNAMSIZ - 1)) {
 		LF_ARP_LOG(ERR, "Too long interface name \n");
-		goto out;
+		return -1;
 	}
 
 	strcpy(ifr.ifr_name, ifname);
 	if (ioctl(fd, SIOCGIFADDR, &ifr) == -1) {
 		LF_ARP_LOG(ERR, "SIOCGIFADDR");
-		goto out;
+		return -1;
 	}
 
 	if (int_ip4(&ifr.ifr_addr, ip)) {
-		goto out;
+		return -1;
 	}
-	err = 0;
-out:
-	return err;
+
+	return 0;
 }
 
 /*
@@ -83,9 +60,9 @@ out:
  * on interface ifindex, using source mac src_mac and source ip src_ip.
  */
 int
-send_arp(int fd, int ifindex, char *src_mac, uint32_t src_ip, uint32_t dst_ip)
+send_arp(int fd, int ifindex, uint16_t *src_mac, uint32_t src_ip,
+		uint32_t dst_ip)
 {
-	int err = -1;
 	uint8_t buffer[ARP_BUF_SIZE];
 	memset(buffer, 0, sizeof(buffer));
 
@@ -131,12 +108,9 @@ send_arp(int fd, int ifindex, char *src_mac, uint32_t src_ip, uint32_t dst_ip)
 	ret = sendto(fd, buffer, 42, 0, (struct sockaddr *)&socket_address,
 			sizeof(socket_address));
 	if (ret == -1) {
-		LF_ARP_LOG(ERR, "sendto");
-		goto out;
+		return -1;
 	}
-	err = 0;
-out:
-	return err;
+	return 0;
 }
 
 /*
@@ -146,7 +120,7 @@ out:
  * ifindex
  */
 int
-get_if_info(const char *ifname, uint32_t *ip, char *mac, int *ifindex)
+get_if_info(const char *ifname, uint32_t *ip, uint16_t *mac, int *ifindex)
 {
 	int err = -1;
 	struct ifreq ifr;
@@ -250,11 +224,6 @@ read_arp(int fd, uint32_t ip, uint8_t *ether)
 		return -1;
 	}
 
-	LF_ARP_LOG(DEBUG, "Sender MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-			arp_resp->sender_mac[0], arp_resp->sender_mac[1],
-			arp_resp->sender_mac[2], arp_resp->sender_mac[3],
-			arp_resp->sender_mac[4], arp_resp->sender_mac[5]);
-
 	memcpy(ether, arp_resp->sender_mac, 6);
 	return 0;
 }
@@ -267,7 +236,7 @@ arp_request(const char *ifname, uint32_t ip, uint8_t *ether)
 
 	uint32_t src;
 	int ifindex;
-	char mac[MAC_LENGTH];
+	uint16_t mac[MAC_LENGTH];
 	if (get_if_info(ifname, &src, mac, &ifindex)) {
 		LF_ARP_LOG(ERR,
 				"get_if_info failed, interface %s not found or no IP set? \n",

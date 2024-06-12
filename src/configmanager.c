@@ -139,21 +139,45 @@ lf_configmanager_arp_request(uint32_t dst_ip, uint8_t *dst_ether)
 void
 lf_configmanager_service_update(struct lf_configmanager *cm)
 {
-	int res = 0;
-
-	LF_CONFIGMANAGER_LOG(DEBUG, "Updating service.\n");
+	int res;
+	int errors = 0;
 
 	uint32_t inbound_dst_ip = cm->config->inbound_next_hop.ip;
-	res += lf_configmanager_arp_request(inbound_dst_ip,
+	res = lf_configmanager_arp_request(inbound_dst_ip,
 			cm->config->inbound_next_hop.ether);
+	if (res == 0) {
+		LF_CONFIGMANAGER_LOG(DEBUG,
+				"Successfully set inbound ethernet address to: "
+				"%02X:%02X:%02X:%02X:%02X:%02X\n",
+				cm->config->inbound_next_hop.ether[0],
+				cm->config->inbound_next_hop.ether[1],
+				cm->config->inbound_next_hop.ether[2],
+				cm->config->inbound_next_hop.ether[3],
+				cm->config->inbound_next_hop.ether[4],
+				cm->config->inbound_next_hop.ether[5]);
+	}
+	errors += res;
+
 
 	uint32_t outbound_dst_ip = cm->config->outbound_next_hop.ip;
 	res += lf_configmanager_arp_request(outbound_dst_ip,
 			cm->config->outbound_next_hop.ether);
+	if (res == 0) {
+		LF_CONFIGMANAGER_LOG(DEBUG,
+				"Successfully set outbound ethernet address to: "
+				"%02X:%02X:%02X:%02X:%02X:%02X\n",
+				cm->config->outbound_next_hop.ether[0],
+				cm->config->outbound_next_hop.ether[1],
+				cm->config->outbound_next_hop.ether[2],
+				cm->config->outbound_next_hop.ether[3],
+				cm->config->outbound_next_hop.ether[4],
+				cm->config->outbound_next_hop.ether[5]);
+	}
+	errors += res;
 
 	if (res > 0) {
 		LF_CONFIGMANAGER_LOG(DEBUG, "Updated service. Not successful: %d\n",
-				res);
+				errors);
 	}
 }
 
