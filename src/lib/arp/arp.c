@@ -1,10 +1,5 @@
 #include <arpa/inet.h>
-#include <asm/types.h>
 #include <linux/if_arp.h>
-#include <linux/if_ether.h>
-#include <linux/if_packet.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -91,7 +86,7 @@ int
 send_arp(int fd, int ifindex, char *src_mac, uint32_t src_ip, uint32_t dst_ip)
 {
 	int err = -1;
-	unsigned char buffer[ARP_BUF_SIZE];
+	uint8_t buffer[ARP_BUF_SIZE];
 	memset(buffer, 0, sizeof(buffer));
 
 	struct sockaddr_ll socket_address;
@@ -236,7 +231,7 @@ out:
 int
 read_arp(int fd, uint32_t ip, uint8_t *ether)
 {
-	unsigned char buffer[ARP_BUF_SIZE];
+	uint8_t buffer[ARP_BUF_SIZE];
 	struct ethhdr *rcv_resp = (struct ethhdr *)buffer;
 	struct arp_header *arp_resp =
 			(struct arp_header *)(buffer + ETH2_HEADER_LEN);

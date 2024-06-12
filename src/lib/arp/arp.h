@@ -11,15 +11,15 @@
 #define ARP_BUF_SIZE    60
 
 struct arp_header {
-	unsigned short hardware_type;
-	unsigned short protocol_type;
-	unsigned char hardware_len;
-	unsigned char protocol_len;
-	unsigned short opcode;
-	unsigned char sender_mac[MAC_LENGTH];
-	unsigned char sender_ip[IPV4_LENGTH];
-	unsigned char target_mac[MAC_LENGTH];
-	unsigned char target_ip[IPV4_LENGTH];
+	uint16_t hardware_type;
+	uint16_t protocol_type;
+	uint8_t hardware_len;
+	uint8_t protocol_len;
+	uint16_t opcode;
+	uint8_t sender_mac[MAC_LENGTH];
+	uint8_t sender_ip[IPV4_LENGTH];
+	uint8_t target_mac[MAC_LENGTH];
+	uint8_t target_ip[IPV4_LENGTH];
 };
 
 /*
