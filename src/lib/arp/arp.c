@@ -11,6 +11,9 @@
 
 #define LF_ARP_LOG(level, ...) LF_LOG(level, "ARP: " __VA_ARGS__)
 
+// The code below is taken and adapted from
+// https://stackoverflow.com/questions/16710040/arp-request-and-reply-using-c-socket-programming
+
 /*
  * Converts struct sockaddr with an IPv4 address to network byte order uin32_t.
  * Returns 0 on success.

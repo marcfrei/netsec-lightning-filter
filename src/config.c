@@ -39,6 +39,7 @@
 #define FIELD_IP_PUBLIC  "ip_public"
 #define FIELD_IP_PRIVATE "ip_private"
 #define FIELD_ETHER      "ether"
+#define FIELD_IP_ARP     "ip_arp"
 
 #define FIELD_AUTH_PEERS  "auth_peers"
 #define FIELD_BEST_EFFORT "best_effort"
@@ -654,6 +655,16 @@ parse_pkt_mod(json_value *json_val, struct lf_config_pkt_mod *pkt_mod)
 					field_value->line, field_value->col);
 			error_count++;
 #endif
+		} else if (strcmp(field_name, FIELD_IP_ARP) == 0) {
+			res = lf_json_parse_ipv4(field_value, &pkt_mod->ip_arp);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid pkt mod IP dst map field (%d:%d)\n",
+						field_value->line, field_value->col);
+				error_count++;
+			} else {
+				pkt_mod->ether_via_arp = true;
+				pkt_mod->ether_option = true;
+			}
 		} else {
 			LF_LOG(ERR, "Unknown field %s (%d:%d)\n", field_name,
 					field_value->line, field_value->col);
