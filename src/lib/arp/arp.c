@@ -6,6 +6,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <rte_rcu_qsbr.h>
+
 #include "../log/log.h"
 #include "arp.h"
 
@@ -13,6 +15,27 @@
 
 // The code below is taken and adapted from
 // https://stackoverflow.com/questions/16710040/arp-request-and-reply-using-c-socket-programming
+
+#define PROTO_ARP       0x0806
+#define ETH2_HEADER_LEN 14
+#define HW_TYPE         1
+#define MAC_LENGTH      6
+#define IPV4_LENGTH     4
+#define ARP_REQUEST     0x01
+#define ARP_REPLY       0x02
+#define ARP_BUF_SIZE    60
+
+struct arp_header {
+	uint16_t hardware_type;
+	uint16_t protocol_type;
+	uint8_t hardware_len;
+	uint8_t protocol_len;
+	uint16_t opcode;
+	uint8_t sender_mac[MAC_LENGTH];
+	uint8_t sender_ip[IPV4_LENGTH];
+	uint8_t target_mac[MAC_LENGTH];
+	uint8_t target_ip[IPV4_LENGTH];
+};
 
 /*
  * Converts struct sockaddr with an IPv4 address to network byte order uin32_t.
@@ -256,16 +279,18 @@ arp_request(const char *ifname, uint32_t ip, uint8_t *ether)
 		goto out;
 	}
 
-	int msec = 0, trigger = 3000; /* 3s */
-	clock_t before = clock();
-	while (msec < trigger) {
+	uint64_t current_tsc, start_tsc, period_tsc;
+	start_tsc = rte_rdtsc();
+	current_tsc = start_tsc;
+	period_tsc = (uint64_t)((double)rte_get_timer_hz() * LF_ARP_TIMEOUT_TIME);
+
+	while (current_tsc - start_tsc < period_tsc) {
 		int r = read_arp(arp_fd, ip, ether);
 		if (r == 0) {
 			ret = 0;
 			break;
 		}
-		clock_t difference = clock() - before;
-		msec = difference * 1000 / CLOCKS_PER_SEC;
+		current_tsc = rte_rdtsc();
 	}
 
 out:
