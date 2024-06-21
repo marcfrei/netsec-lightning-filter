@@ -134,35 +134,58 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 	uint8_t ether[6];
 
 	if (cm->config->inbound_next_hop.ether_via_arp) {
-		LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
-				PRIIP_VAL(cm->config->inbound_next_hop.ip_arp));
+		size_t n = sizeof(cm->config->inbound_next_hop.ip_dst_map) /
+		           sizeof(cm->config->inbound_next_hop.ip_dst_map[0]);
+		for (size_t i = 0; i < n; i++) {
+			uint32_t target_ip = cm->config->inbound_next_hop.ip_dst_map[i].to;
+			if (target_ip == 0) {
+				continue;
+			}
+			LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
+					PRIIP_VAL(target_ip));
 
-		res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE,
-				cm->config->inbound_next_hop.ip_arp, ether);
-		if (res == 0) {
-			memcpy(cm->config->inbound_next_hop.ether, ether, 6);
-			LF_CONFIGMANAGER_LOG(DEBUG,
-					"Successfully set inbound ethernet address to: "
-					"%02X:%02X:%02X:%02X:%02X:%02X\n",
-					ether[0], ether[1], ether[2], ether[3], ether[4], ether[5]);
+			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, target_ip, ether);
+			if (res == 0) {
+				memcpy(cm->config->inbound_next_hop.ether_dst_map[i].ether,
+						ether, 6);
+				LF_CONFIGMANAGER_LOG(DEBUG,
+						"Successfully updated inbound dst ethernet address "
+						"for " PRIIP " to: " PRIETH "\n",
+						PRIIP_VAL(target_ip),
+						PRIETH_VAL(cm->config->inbound_next_hop.ether_dst_map[i]
+										   .ether));
+			}
+			cm->config->inbound_next_hop.ether_dst_map[i].ip = target_ip;
+			errors += res;
 		}
-		errors += res;
 	}
 
 	if (cm->config->outbound_next_hop.ether_via_arp) {
-		LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
-				PRIIP_VAL(cm->config->outbound_next_hop.ip_arp));
+		size_t n = sizeof(cm->config->outbound_next_hop.ip_dst_map) /
+		           sizeof(cm->config->outbound_next_hop.ip_dst_map[0]);
+		for (size_t i = 0; i < n; i++) {
+			uint32_t target_ip = cm->config->outbound_next_hop.ip_dst_map[i].to;
+			if (target_ip == 0) {
+				continue;
+			}
+			LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
+					PRIIP_VAL(target_ip));
 
-		res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE,
-				cm->config->outbound_next_hop.ip_arp, ether);
-		if (res == 0) {
-			memcpy(cm->config->outbound_next_hop.ether, ether, 6);
-			LF_CONFIGMANAGER_LOG(DEBUG,
-					"Successfully set outbound ethernet address to: "
-					"%02X:%02X:%02X:%02X:%02X:%02X\n",
-					ether[0], ether[1], ether[2], ether[3], ether[4], ether[5]);
+			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, target_ip, ether);
+			if (res == 0) {
+				memcpy(cm->config->outbound_next_hop.ether_dst_map[i].ether,
+						ether, 6);
+				LF_CONFIGMANAGER_LOG(DEBUG,
+						"Successfully updated outbound dst ethernet address "
+						"for " PRIIP " to: " PRIETH "\n",
+						PRIIP_VAL(target_ip),
+						PRIETH_VAL(
+								cm->config->outbound_next_hop.ether_dst_map[i]
+										.ether));
+			}
+			cm->config->outbound_next_hop.ether_dst_map[i].ip = target_ip;
+			errors += res;
 		}
-		errors += res;
 	}
 
 	if (errors > 0) {

@@ -115,6 +115,11 @@ lf_worker_pkt_mod(struct rte_mbuf *m, struct rte_ether_hdr *ether_hdr,
 						PRIIP_VAL(ipv4_hdr->dst_addr),
 						PRIIP_VAL(pkt_mod->ip_dst_map[i].to));
 				ipv4_hdr->dst_addr = pkt_mod->ip_dst_map[i].to;
+				if (ether_hdr != NULL && pkt_mod->ether_via_arp) {
+					(void)rte_memcpy(&(ether_hdr->dst_addr),
+							pkt_mod->ether_dst_map[i].ether,
+							RTE_ETHER_ADDR_LEN);
+				}
 			}
 		}
 		(void)lf_pkt_set_cksum(m, ether_hdr, ipv4_hdr, LF_OFFLOAD_CKSUM);
