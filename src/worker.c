@@ -116,14 +116,14 @@ lf_worker_pkt_mod(struct rte_mbuf *m, struct rte_ether_hdr *ether_hdr,
 						PRIIP_VAL(pkt_mod->ip_dst_map[i].to));
 				ipv4_hdr->dst_addr = pkt_mod->ip_dst_map[i].to;
 				if (ether_hdr != NULL && pkt_mod->ether_via_arp) {
-					(void)rte_memcpy(&(ether_hdr->dst_addr),
-							pkt_mod->ether_dst_map[i].ether,
-							RTE_ETHER_ADDR_LEN);
 					LF_WORKER_LOG_DP(DEBUG,
 							"Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
 							" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
 							RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
 							PRIETH_VAL(pkt_mod->ether_dst_map[i].ether));
+					(void)rte_memcpy(&(ether_hdr->dst_addr),
+							pkt_mod->ether_dst_map[i].ether,
+							RTE_ETHER_ADDR_LEN);
 				}
 			}
 		}
