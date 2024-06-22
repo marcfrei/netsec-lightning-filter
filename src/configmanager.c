@@ -126,10 +126,43 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 	return 0;
 }
 
+int32_t
+check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
+{
+	int res = 0;
+	char cmd[200] = { 0x0 };
+	sprintf(cmd,
+			"ip route show to match " PRIIP
+			" | grep src | awk 'BEGIN{FS=\"via *\"}{sub(/ .*/,\"\",$2);print "
+			"$2}'",
+			PRIIP_VAL(target_ip));
+	LF_CONFIGMANAGER_LOG(DEBUG, "Gateway check CMD: %s\n", cmd);
+
+	FILE *fp = popen(cmd, "r");
+	char line[20] = { 0x0 };
+	if (fgets(line, sizeof(line), fp) != NULL) {
+		for (int i = 0; i < 20; i++) {
+			if (line[i] == '\n') {
+				line[i] = (char)0;
+			}
+		}
+		int r = inet_pton(AF_INET, line, &gateway_ip);
+		if (r != 1) {
+			LF_CONFIGMANAGER_LOG(DEBUG, "IP conversion error\n");
+			res = -1;
+		}
+	} else {
+		res = 1;
+	}
+	pclose(fp);
+	return res;
+}
+
 void
 lf_configmanager_service_update(struct lf_configmanager *cm)
 {
 	int res;
+	uint32_t arp_ip;
 	int errors = 0;
 	uint8_t ether[6];
 
@@ -141,10 +174,19 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 			if (target_ip == 0) {
 				continue;
 			}
-			LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
-					PRIIP_VAL(target_ip));
 
-			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, target_ip, ether);
+			res = check_for_gateway(target_ip, &arp_ip);
+			if (res < 0) {
+				continue;
+			} else if (res == 1) {
+				arp_ip = target_ip;
+			}
+
+			LF_CONFIGMANAGER_LOG(DEBUG,
+					"Target IP: " PRIIP ". Sending ARP request for " PRIIP "\n",
+					PRIIP_VAL(target_ip), PRIIP_VAL(arp_ip));
+
+			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, arp_ip, ether);
 			if (res == 0) {
 				memcpy(cm->config->inbound_next_hop.ether_dst_map[i].ether,
 						ether, 6);
@@ -168,10 +210,19 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 			if (target_ip == 0) {
 				continue;
 			}
-			LF_CONFIGMANAGER_LOG(DEBUG, "Sending ARP request for " PRIIP "\n",
-					PRIIP_VAL(target_ip));
 
-			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, target_ip, ether);
+			res = check_for_gateway(target_ip, &arp_ip);
+			if (res < 0) {
+				continue;
+			} else if (res == 1) {
+				arp_ip = target_ip;
+			}
+
+			LF_CONFIGMANAGER_LOG(DEBUG,
+					"Target IP: " PRIIP ". Sending ARP request for " PRIIP "\n",
+					PRIIP_VAL(target_ip), PRIIP_VAL(arp_ip));
+
+			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, arp_ip, ether);
 			if (res == 0) {
 				memcpy(cm->config->outbound_next_hop.ether_dst_map[i].ether,
 						ether, 6);
