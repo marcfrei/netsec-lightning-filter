@@ -147,7 +147,7 @@ check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
 	FILE *fp = popen(cmd, "r");
 	char line[20] = { 0x0 };
 	if (fgets(line, sizeof(line), fp) != NULL) {
-		if (line[0] == '\n') {
+		if (line[0] == '\n' || line[0] == ' ') {
 			res = 0;
 		} else {
 			for (int i = 0; i < 20; i++) {
