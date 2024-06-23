@@ -126,6 +126,12 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 	return 0;
 }
 
+/**
+ * @param target_ip IP for which to query if it is behind gateway.
+ * @param gateway_ip Returns IP of gateway if it exists.
+ * @return 1, if there is a gateway. 0 if there is none. -1 if there is an
+ * error.
+ */
 int32_t
 check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
 {
@@ -141,18 +147,23 @@ check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
 	FILE *fp = popen(cmd, "r");
 	char line[20] = { 0x0 };
 	if (fgets(line, sizeof(line), fp) != NULL) {
-		for (int i = 0; i < 20; i++) {
-			if (line[i] == '\n') {
-				line[i] = (char)0;
+		if (line[0] == '\n') {
+			res = 0;
+		} else {
+			for (int i = 0; i < 20; i++) {
+				if (line[i] == '\n') {
+					line[i] = (char)0;
+				}
 			}
-		}
-		int r = inet_pton(AF_INET, line, &gateway_ip);
-		if (r != 1) {
-			LF_CONFIGMANAGER_LOG(DEBUG, "IP conversion error\n");
-			res = -1;
+			int r = inet_pton(AF_INET, line, &gateway_ip);
+			if (r != 1) {
+				LF_CONFIGMANAGER_LOG(DEBUG, "IP conversion error\n");
+				res = -1;
+			}
+			res = 1;
 		}
 	} else {
-		res = 1;
+		res = 0;
 	}
 	pclose(fp);
 	return res;
@@ -178,7 +189,7 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 			res = check_for_gateway(target_ip, &arp_ip);
 			if (res < 0) {
 				continue;
-			} else if (res == 1) {
+			} else if (res == 0) {
 				arp_ip = target_ip;
 			}
 
@@ -214,7 +225,7 @@ lf_configmanager_service_update(struct lf_configmanager *cm)
 			res = check_for_gateway(target_ip, &arp_ip);
 			if (res < 0) {
 				continue;
-			} else if (res == 1) {
+			} else if (res == 0) {
 				arp_ip = target_ip;
 			}
 
