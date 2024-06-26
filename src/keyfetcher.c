@@ -78,13 +78,13 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 		}
 	}
 	if (secret == NULL) {
-		LF_KEYFETCHER_LOG(ERR,
-				"Could not find shared secret for: src_as " PRIISDAS
-				", dst_as " PRIISDAS ", drkey_protocol %u, ns_valid %" PRIu64
-				"\n",
-				PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), ns_valid);
+		// LF_KEYFETCHER_LOG(ERR,
+		// 		"Could not find shared secret for: src_as " PRIISDAS
+		// 		", dst_as " PRIISDAS ", drkey_protocol %u, ns_valid %" PRIu64
+		// 		"\n",
+		// 		PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
+		// 		PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
+		// 		rte_be_to_cpu_16(drkey_protocol), ns_valid);
 		return -1;
 	}
 
@@ -145,12 +145,12 @@ lf_keyfetcher_fetch_as_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 				shared_secret_node, src_ia, dst_ia, drkey_protocol, ns_valid,
 				key);
 	} else {
-		LF_KEYFETCHER_LOG(ERR,
-				"Fail to look up shared secret: src_as " PRIISDAS
-				", dst_as " PRIISDAS ", drkey_protocol %u\n",
-				PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol));
+		// LF_KEYFETCHER_LOG(ERR,
+		// 		"Fail to look up shared secret: src_as " PRIISDAS
+		// 		", dst_as " PRIISDAS ", drkey_protocol %u\n",
+		// 		PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
+		// 		PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
+		// 		rte_be_to_cpu_16(drkey_protocol));
 		res = -1;
 	}
 	return res;

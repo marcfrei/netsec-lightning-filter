@@ -56,6 +56,8 @@ struct lf_config_peer {
 	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */
 	uint32_t ip; /* in network byte order */
 
+	bool deny;
+
 	/*
 	 * Pointer to the next peer (for the linked list represenation).
 	 * Allows for an arbitrary number of peers.

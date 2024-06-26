@@ -196,8 +196,8 @@ exit:
 		linked_list_free(free_list);
 	}
 	if (err != 0) {
-		LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
-				err);
+		// LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
+		// 		err);
 	}
 	(void)rte_spinlock_unlock(&km->management_lock);
 }

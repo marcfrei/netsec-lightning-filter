@@ -3,6 +3,7 @@
  */
 
 #include <stdint.h>
+#include <string.h>
 
 #include <rte_common.h>
 #include <rte_ethdev.h>
@@ -25,6 +26,9 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 	unsigned int offset;
 	struct rte_ether_hdr *ether_hdr;
 	struct rte_ipv4_hdr *ipv4_hdr;
+	struct lf_config_peer *peer;
+	struct lf_config_pkt_mod *inbound_pkt_mod;
+	struct lf_config_pkt_mod *outbound_pkt_mod;
 
 	if (unlikely(m->data_len != m->pkt_len)) {
 		LF_WORKER_LOG_DP(NOTICE,
@@ -50,12 +54,38 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
-	/* Consider the packet as inbound */
-	pkt_action = LF_PKT_INBOUND_FORWARD;
+	peer = lf_configmanager_worker_get_peer_from_ip(
+		worker_context->config, ipv4_hdr->src_addr);
+	if (unlikely((peer != NULL) && (peer->ip == ipv4_hdr->src_addr) && peer->deny)) {
+		LF_WORKER_LOG_DP(DEBUG, "Dropping packet (SRC IP: " PRIIP ")\n",
+			PRIIP_VAL(ipv4_hdr->src_addr));
+		return LF_PKT_UNKNOWN_DROP;
+	}
 
-	(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
-			lf_configmanager_worker_get_inbound_pkt_mod(
-					worker_context->config));
+	inbound_pkt_mod = lf_configmanager_worker_get_inbound_pkt_mod(
+		worker_context->config);
+	outbound_pkt_mod = lf_configmanager_worker_get_outbound_pkt_mod(
+		worker_context->config);
+
+	if (outbound_pkt_mod->ether_option &&
+		(memcmp(outbound_pkt_mod->ether, &ether_hdr->src_addr, 6) == 0)) {
+		pkt_action = LF_PKT_INBOUND_FORWARD;
+		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr, inbound_pkt_mod);
+	} else if (inbound_pkt_mod->ether_option &&
+		(memcmp(inbound_pkt_mod->ether, &ether_hdr->src_addr, 6) == 0)) {
+		pkt_action = LF_PKT_OUTBOUND_FORWARD;
+		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr, outbound_pkt_mod);
+	} else {
+		return LF_PKT_UNKNOWN_DROP;
+	}
+
+	LF_WORKER_LOG(DEBUG, "Forwarding packet ("
+		"SRC ETHER: " RTE_ETHER_ADDR_PRT_FMT " -> DST ETHER: " RTE_ETHER_ADDR_PRT_FMT ", "
+		"SRC IP: " PRIIP " -> DST IP: " PRIIP ")\n",
+		RTE_ETHER_ADDR_BYTES(&ether_hdr->src_addr),
+		RTE_ETHER_ADDR_BYTES(&ether_hdr->dst_addr),
+		PRIIP_VAL(ipv4_hdr->src_addr),
+		PRIIP_VAL(ipv4_hdr->dst_addr));
 
 	return pkt_action;
 }

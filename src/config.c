@@ -23,6 +23,7 @@
 #define FIELD_ISD_AS "isd_as"
 #define FIELD_PEERS  "peers"
 
+#define FIELD_DENY         "deny"
 #define FIELD_RATELIMIT    "ratelimit"
 #define FIELD_PACKET_RATE  "packet_rate"
 #define FIELD_PACKET_BURST "packet_burst"
@@ -96,6 +97,8 @@ peer_init(struct lf_config_peer *config_peer)
 
 		.shared_secrets_configured_option = false,
 		.shared_secrets = { 0 },
+
+		.deny = false,
 
 		/* per default no rate limit is defined for a peer */
 		.ratelimit_option = false,
@@ -309,6 +312,7 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 	unsigned int i;
 	char *field_name;
 	json_value *field_value;
+	uint64_t x;
 
 	if (json_val == NULL) {
 		return -1;
@@ -347,6 +351,14 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 						field_value->col);
 				error_count++;
 			}
+		} else if (strcmp(field_name, FIELD_DENY) == 0) {
+			res = lf_json_parse_uint64(field_value, (x = 0, &x));
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid deny value (%d:%d)\n",
+						field_value->line, field_value->col);
+				error_count++;
+			}
+			peer->deny = x != 0;
 		} else if (strcmp(field_name, FIELD_RATELIMIT) == 0) {
 			res = parse_ratelimit(field_value, &peer->ratelimit);
 			if (res != 0) {
