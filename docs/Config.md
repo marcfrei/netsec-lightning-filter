@@ -48,16 +48,17 @@ If an address is provided, the Ethernet destination address is set to that addre
 If the string `"src_addr"` is provided, the destination and source addresses are switched.
 The destination Ethernet address is not set if this field (and the "ip_arp" field) is not provided.
 
-**ip_arp** (string)  
-Destination Ethernet address.
-Same as the "ether" field but the Ethernet destination address set to the address returned by an arp request for this ip address.
-If this field is provided the "ether" field will be ignored.
-
 **ip** (string)  
 Destination IPv4 address. The destination IP address is not set if this field is not provided.
 
 **ipv6** (string, not fully supported)  
 Destination IPv6 address. The destination IP address is not set if this field is not provided.
+
+**ip_dst_map** 
+TODO: Descrpition of ip addr mapping and how this incorporates ARP.
+
+NOTE:
+ARP is not a secure protocol. DOS could happen if an adversary responds to the ARP requests.
 
 ## Peer
 For a peer, the following fields are available.

@@ -39,7 +39,6 @@
 #define FIELD_IP_PUBLIC  "ip_public"
 #define FIELD_IP_PRIVATE "ip_private"
 #define FIELD_ETHER      "ether"
-#define FIELD_IP_ARP     "ip_arp"
 
 #define FIELD_AUTH_PEERS  "auth_peers"
 #define FIELD_BEST_EFFORT "best_effort"

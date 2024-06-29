@@ -194,9 +194,7 @@ lf_get_arp_hdr(const struct rte_mbuf *m, unsigned int offset,
 	}
 
 	*arp_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_arp_hdr *, offset);
-
 	offset += sizeof(struct rte_arp_hdr);
-
 	return offset;
 }
 
