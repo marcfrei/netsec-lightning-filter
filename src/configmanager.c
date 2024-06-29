@@ -147,6 +147,8 @@ check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
 	FILE *fp = popen(cmd, "r");
 	char line[20] = { 0x0 };
 	if (fgets(line, sizeof(line), fp) != NULL) {
+		LF_CONFIGMANAGER_LOG(DEBUG, "Line: %s\n", line);
+
 		if (line[0] == '\n' || line[0] == ' ') {
 			res = 0;
 		} else {
@@ -159,8 +161,9 @@ check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
 			if (r != 1) {
 				LF_CONFIGMANAGER_LOG(DEBUG, "IP conversion error\n");
 				res = -1;
+			} else {
+				res = 1;
 			}
-			res = 1;
 		}
 	} else {
 		res = 0;
