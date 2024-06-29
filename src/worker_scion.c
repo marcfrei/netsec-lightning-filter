@@ -1136,9 +1136,7 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 						"Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
 						" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
 						RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
-						pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
-						pkt_mod->ether[3], pkt_mod->ether[4],
-						pkt_mod->ether[5]);
+						PRIETH_VAL(pkt_mod->ether));
 				(void)rte_memcpy(&(ether_hdr->dst_addr), pkt_mod->ether,
 						RTE_ETHER_ADDR_LEN);
 			}
@@ -1163,11 +1161,17 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 						"Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
 						" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
 						RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
-						pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
-						pkt_mod->ether[3], pkt_mod->ether[4],
-						pkt_mod->ether[5]);
+						PRIETH_VAL(pkt_mod->ether));
 				(void)rte_memcpy(&(ether_hdr->dst_addr), pkt_mod->ether,
 						RTE_ETHER_ADDR_LEN);
+			} else if (pkt_mod->ether_via_arp) {
+				LF_WORKER_LOG_DP(DEBUG,
+						"Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
+						" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
+						RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
+						PRIETH_VAL(pkt_mod->ether_dst_map[i].ether));
+				(void)rte_memcpy(&(ether_hdr->dst_addr),
+						pkt_mod->ether_dst_map[i].ether, RTE_ETHER_ADDR_LEN);
 			}
 			LF_WORKER_LOG_DP(DEBUG, "Dst IP: " PRIIP " -> " PRIIP "\n",
 					PRIIP_VAL(ipv4_hdr->dst_addr),
@@ -1191,6 +1195,12 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 */
 	if (dst_ia == local_isd_as) {
 		LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
+		LF_WORKER_LOG_DP(DEBUG,
+				"SRC ETHER: " RTE_ETHER_ADDR_PRT_FMT ", SRC IP: " PRIIP
+				", DST IP: " PRIIP "\n",
+				RTE_ETHER_ADDR_BYTES(&(parsed_pkt->ether_hdr->src_addr)),
+				PRIIP_VAL((parsed_pkt->ipv4_hdr->src_addr)),
+				PRIIP_VAL((parsed_pkt->ipv4_hdr->dst_addr)));
 		return PKT_INBOUND;
 	}
 	if (src_ia == local_isd_as) {

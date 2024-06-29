@@ -54,6 +54,12 @@ Destination IPv4 address. The destination IP address is not set if this field is
 **ipv6** (string, not fully supported)  
 Destination IPv6 address. The destination IP address is not set if this field is not provided.
 
+**ip_dst_map** 
+TODO: Descrpition of ip addr mapping and how this incorporates ARP.
+
+NOTE:
+ARP is not a secure protocol. DOS could happen if an adversary responds to the ARP requests.
+
 ## Peer
 For a peer, the following fields are available.
 

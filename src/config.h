@@ -88,6 +88,12 @@ struct lf_config_pkt_mod {
 	/* set destination Ethernet address to specific value */
 	bool ether_option;
 	uint8_t ether[6]; /* Ethernet destination address */
+	/* set destination Ethernet address to value queried via ARP */
+	bool ether_via_arp;
+	struct {
+		uint32_t ip;
+		uint8_t ether[6];
+	} ether_dst_map[LF_CONFIG_IP_MAP_MAX];
 
 	/*
 	 * IP Layer Modifiers

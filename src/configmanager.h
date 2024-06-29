@@ -23,6 +23,9 @@
  * runtime.
  */
 
+#define LF_CONFIGMANAGER_ARP_INTERVAL  30 /* seconds */
+#define LF_CONFIGMANAGER_ARP_INTERFACE "virtio_user0"
+
 /**
  * The worker's config manager struct to access the current
  * configuration.
@@ -78,6 +81,14 @@ lf_configmanager_apply_config_file(struct lf_configmanager *cm,
  */
 int
 lf_configmanager_register_ipc(struct lf_configmanager *cm);
+
+
+/**
+ * Launch function for configmanager service. (Used for ARP requests.)
+ */
+int
+lf_configmanager_service_launch(struct lf_configmanager *cm);
+
 
 /**
  * Get outbound DRKey protocol (network byte order).

@@ -11,8 +11,10 @@
 #include "config.h"
 #include "configmanager.h"
 #include "keymanager.h"
+#include "lib/arp/arp.h"
 #include "lib/ipc/ipc.h"
 #include "lib/log/log.h"
+#include "lib/utils/packet.h"
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
 
@@ -120,6 +122,160 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 
 	cm->km = km;
 	cm->rl = rl;
+
+	return 0;
+}
+
+/**
+ * @param target_ip IP for which to determine if it is behind gateway.
+ * @param gateway_ip Returns IP of gateway if it exists.
+ * @return 1, if there is a gateway. 0 if there is none. -1 if there is an
+ * error.
+ */
+int32_t
+check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
+{
+	int res = 0;
+	char cmd[200] = { 0x0 };
+	sprintf(cmd,
+			"ip route show to match " PRIIP
+			" | grep src | awk 'BEGIN{FS=\"via *\"}{sub(/ .*/,\"\",$2);print "
+			"$2}'",
+			PRIIP_VAL(target_ip));
+	LF_CONFIGMANAGER_LOG(DEBUG, "Gateway check CMD: %s\n", cmd);
+
+	FILE *fp = popen(cmd, "r");
+	char line[20] = { 0x0 };
+	if (fgets(line, sizeof(line), fp) != NULL) {
+		if (line[0] != '\n' && line[0] != ' ') {
+			for (int i = 0; i < 20; i++) {
+				if (line[i] == '\n') {
+					line[i] = (char)0;
+				}
+			}
+			int r = inet_pton(AF_INET, line, gateway_ip);
+			if (r == 1) {
+				res = 1;
+			} else {
+				LF_CONFIGMANAGER_LOG(DEBUG, "IP conversion error\n");
+				res = -1;
+			}
+		}
+	}
+	pclose(fp);
+	return res;
+}
+
+void
+lf_configmanager_service_update(struct lf_configmanager *cm)
+{
+	int res;
+	uint32_t arp_ip;
+	int errors = 0;
+	uint8_t ether[6];
+
+	if (cm->config->inbound_next_hop.ether_via_arp) {
+		size_t n = sizeof(cm->config->inbound_next_hop.ip_dst_map) /
+		           sizeof(cm->config->inbound_next_hop.ip_dst_map[0]);
+		for (size_t i = 0; i < n; i++) {
+			uint32_t target_ip = cm->config->inbound_next_hop.ip_dst_map[i].to;
+			if (target_ip == 0) {
+				continue;
+			}
+
+			res = check_for_gateway(target_ip, &arp_ip);
+			if (res < 0) {
+				errors += 1;
+				continue;
+			} else if (res == 0) {
+				arp_ip = target_ip;
+			}
+
+			LF_CONFIGMANAGER_LOG(DEBUG,
+					"Target IP: " PRIIP ". Sending ARP request for " PRIIP "\n",
+					PRIIP_VAL(target_ip), PRIIP_VAL(arp_ip));
+
+			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, arp_ip, ether);
+			if (res == 0) {
+				memcpy(cm->config->inbound_next_hop.ether_dst_map[i].ether,
+						ether, 6);
+				LF_CONFIGMANAGER_LOG(DEBUG,
+						"Successfully updated inbound dst ethernet address "
+						"for " PRIIP " to: " PRIETH "\n",
+						PRIIP_VAL(target_ip),
+						PRIETH_VAL(cm->config->inbound_next_hop.ether_dst_map[i]
+										   .ether));
+			}
+			cm->config->inbound_next_hop.ether_dst_map[i].ip = target_ip;
+			errors += 1;
+		}
+	}
+
+	if (cm->config->outbound_next_hop.ether_via_arp) {
+		size_t n = sizeof(cm->config->outbound_next_hop.ip_dst_map) /
+		           sizeof(cm->config->outbound_next_hop.ip_dst_map[0]);
+		for (size_t i = 0; i < n; i++) {
+			uint32_t target_ip = cm->config->outbound_next_hop.ip_dst_map[i].to;
+			if (target_ip == 0) {
+				continue;
+			}
+
+			res = check_for_gateway(target_ip, &arp_ip);
+			if (res < 0) {
+				errors += 1;
+				continue;
+			} else if (res == 0) {
+				arp_ip = target_ip;
+			}
+
+			LF_CONFIGMANAGER_LOG(DEBUG,
+					"Target IP: " PRIIP ". Sending ARP request for " PRIIP "\n",
+					PRIIP_VAL(target_ip), PRIIP_VAL(arp_ip));
+
+			res = arp_request(LF_CONFIGMANAGER_ARP_INTERFACE, arp_ip, ether);
+			if (res == 0) {
+				memcpy(cm->config->outbound_next_hop.ether_dst_map[i].ether,
+						ether, 6);
+				LF_CONFIGMANAGER_LOG(DEBUG,
+						"Successfully updated outbound dst ethernet address "
+						"for " PRIIP " to: " PRIETH "\n",
+						PRIIP_VAL(target_ip),
+						PRIETH_VAL(
+								cm->config->outbound_next_hop.ether_dst_map[i]
+										.ether));
+			}
+			cm->config->outbound_next_hop.ether_dst_map[i].ip = target_ip;
+			errors += 1;
+		}
+	}
+
+	if (errors > 0) {
+		LF_CONFIGMANAGER_LOG(DEBUG, "Updated service. Not successful: %d\n",
+				errors);
+	}
+}
+
+int
+lf_configmanager_service_launch(struct lf_configmanager *cm)
+{
+	uint64_t current_tsc, last_rotation_tsc, period_tsc;
+
+	/* measure time using the time stamp counter */
+	last_rotation_tsc = rte_rdtsc();
+	period_tsc = (uint64_t)((double)rte_get_timer_hz() *
+							LF_CONFIGMANAGER_ARP_INTERVAL);
+
+	while (!lf_force_quit) {
+		current_tsc = rte_rdtsc();
+		if (current_tsc - last_rotation_tsc >= period_tsc) {
+			(void)lf_configmanager_service_update(cm);
+			last_rotation_tsc = current_tsc;
+
+			/* potentially the clock speed has changed */
+			period_tsc = (uint64_t)((double)rte_get_timer_hz() *
+									LF_CONFIGMANAGER_ARP_INTERVAL);
+		}
+	}
 
 	return 0;
 }

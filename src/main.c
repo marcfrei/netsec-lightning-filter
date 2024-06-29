@@ -47,6 +47,7 @@ uint16_t lf_nb_workers;
 bool lf_worker_lcores[RTE_MAX_LCORE];
 uint16_t lf_worker_lcore_map[RTE_MAX_LCORE];
 uint16_t lf_keymanager_lcore;
+uint16_t lf_configmanager_lcore;
 
 /* module contextes */
 static struct lf_worker_context worker_contexts[RTE_MAX_LCORE];
@@ -178,6 +179,7 @@ assign_lcores(__rte_unused struct lf_params *params)
 	 * Distribute lcores
 	 */
 	lf_keymanager_lcore = RTE_MAX_LCORE;
+	lf_configmanager_lcore = RTE_MAX_LCORE;
 
 	worker_counter = 0;
 	RTE_LCORE_FOREACH_WORKER(lcore_id) {
@@ -186,6 +188,12 @@ assign_lcores(__rte_unused struct lf_params *params)
 		if (lf_keymanager_lcore == RTE_MAX_LCORE) {
 			lf_keymanager_lcore = lcore_id;
 			LF_LOG(DEBUG, "lcore %u: keymanager\n", lcore_id);
+			continue;
+		}
+		/* second (non-main) lcore is assigned to the configmanager service */
+		else if (lf_configmanager_lcore == RTE_MAX_LCORE) {
+			lf_configmanager_lcore = lcore_id;
+			LF_LOG(DEBUG, "lcore %u: configmanager\n", lcore_id);
 			continue;
 		}
 
@@ -279,6 +287,12 @@ launch_lcores()
 	(void)rte_eal_remote_launch(
 			(lcore_function_t *)lf_keymanager_service_launch, &keymanager,
 			lf_keymanager_lcore);
+
+	/* launch arp service */
+	LF_LOG(NOTICE, "Launch Configmanager Service\n");
+	(void)rte_eal_remote_launch(
+			(lcore_function_t *)lf_configmanager_service_launch, &configmanager,
+			lf_configmanager_lcore);
 
 	/* launch workers */
 	LF_LOG(NOTICE, "Launch workers\n");

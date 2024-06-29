@@ -621,6 +621,7 @@ parse_pkt_mod(json_value *json_val, struct lf_config_pkt_mod *pkt_mod)
 						field_value->line, field_value->col);
 				error_count++;
 			}
+			pkt_mod->ether_via_arp = true;
 		} else if (strcmp(field_name, FIELD_IP_SRC_MAP) == 0) {
 			res = parse_pkt_mod_ip_map(field_name, field_value, pkt_mod);
 			if (res != 0) {
@@ -659,6 +660,12 @@ parse_pkt_mod(json_value *json_val, struct lf_config_pkt_mod *pkt_mod)
 					field_value->line, field_value->col);
 			error_count++;
 		}
+	}
+
+	// is this the intended behavior? Maybe we should have a separate flag to
+	// enable ethernet rewriting with ARP
+	if (pkt_mod->ether_option) {
+		pkt_mod->ether_via_arp = false;
 	}
 
 	if (error_count > 0) {

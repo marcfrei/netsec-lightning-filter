@@ -32,6 +32,10 @@
 	((ip)&0xFF), (((ip) >> 8) & 0xFF), (((ip) >> 16) & 0xFF), \
 			(((ip) >> 24) & 0xFF)
 
+#define PRIETH "%02X:%02X:%02X:%02X:%02X:%02X"
+#define PRIETH_VAL(ether) \
+	(ether)[0], (ether)[1], (ether)[2], (ether)[3], (ether)[4], (ether)[5]
+
 static inline unsigned int
 lf_get_eth_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct rte_ether_hdr **ether_hdr_ptr)
