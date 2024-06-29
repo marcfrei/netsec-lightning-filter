@@ -157,7 +157,7 @@ check_for_gateway(uint32_t target_ip, uint32_t *gateway_ip)
 					line[i] = (char)0;
 				}
 			}
-			int r = inet_pton(AF_INET, line, &gateway_ip);
+			int r = inet_pton(AF_INET, line, gateway_ip);
 			if (r != 1) {
 				LF_CONFIGMANAGER_LOG(DEBUG, "IP conversion error\n");
 				res = -1;
